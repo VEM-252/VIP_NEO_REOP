@@ -7,6 +7,7 @@
 # All rights reserved.
 #
 import asyncio
+import os
 from datetime import datetime, timedelta
 from typing import Union
 
@@ -21,7 +22,16 @@ from pyrogram.errors import (
 )
 from pyrogram.types import InlineKeyboardMarkup
 from pytgcalls import PyTgCalls
-from pytgcalls.exceptions import AlreadyJoinedError, NoActiveGroupCall
+
+# --- ERROR FIX START ---
+try:
+    from pytgcalls.exceptions import AlreadyJoinedError, NoActiveGroupCall
+except ImportError:
+    # New version compatibility
+    from pytgcalls.exceptions import CallError as AlreadyJoinedError
+    from pytgcalls.exceptions import GroupCallNotFound as NoActiveGroupCall
+# --- ERROR FIX END ---
+
 from pytgcalls.types import (
     JoinedGroupCallParticipant,
     LeftGroupCallParticipant,
@@ -272,6 +282,9 @@ class Call(PyTgCalls):
                 await proc.communicate()
         else:
             out = file_path
+        
+        # Fixed loop issue in the original code
+        loop = asyncio.get_event_loop()
         dur = await loop.run_in_executor(None, check_duration, out)
         dur = int(dur)
         played, con_seconds = speed_converter(playing[0]["played"], speed)
@@ -279,14 +292,14 @@ class Call(PyTgCalls):
         stream = (
             MediaStream(
                 out,
-                audio_parameters=AudioQuality.HIGH,
-                video_parameters=VideoQuality.SD_480p,
+                audio_parameters=audio_stream_quality,
+                video_parameters=video_stream_quality,
                 ffmpeg_parameters=f"-ss {played} -to {duration}",
             )
             if playing[0]["streamtype"] == "video"
             else MediaStream(
                 out,
-                audio_parameters=AudioQuality.HIGH,
+                audio_parameters=audio_stream_quality,
                 ffmpeg_parameters=f"-ss {played} -to {duration}",
                 video_flags=MediaStream.IGNORE,
             )
