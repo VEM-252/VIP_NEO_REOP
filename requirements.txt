@@ -1,7 +1,7 @@
 pyrogram>=2.0.106
 pyromod
 blinker
-openai==0.28.1
+openai
 aiofiles
 aiohttp
 asyncio
@@ -21,8 +21,8 @@ psutil
 pytube
 pykeyboard
 unidecode
-py-tgcalls==2.1.1
-ntgcalls
+py-tgcalls==1.2.9
+ntgcalls==1.1.2
 python-dotenv
 pyyaml
 requests
