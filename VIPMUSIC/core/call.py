@@ -23,13 +23,19 @@ from pyrogram.errors import (
 from pyrogram.types import InlineKeyboardMarkup
 from pytgcalls import PyTgCalls
 
-# --- ERROR FIX START (Compatibility for all pytgcalls versions) ---
+# --- ERROR FIX START (New Version Compatibility) ---
 try:
+    # Try old version (v2.x)
     from pytgcalls.exceptions import AlreadyJoinedError, NoActiveGroupCall
 except ImportError:
-    # This handles newer versions where names have changed
-    from pytgcalls.exceptions import CallError as AlreadyJoinedError
-    from pytgcalls.exceptions import GroupCallNotFound as NoActiveGroupCall
+    try:
+        # Try new version (v3.x)
+        from pytgcalls.exceptions import CallError as AlreadyJoinedError
+        from pytgcalls.exceptions import GroupCallNotFound as NoActiveGroupCall
+    except ImportError:
+        # Fallback to prevent crash
+        class AlreadyJoinedError(Exception): pass
+        class NoActiveGroupCall(Exception): pass
 # --- ERROR FIX END ---
 
 from pytgcalls.types import (
@@ -198,7 +204,8 @@ class Call(PyTgCalls):
 
     async def skip_stream(
         self,
-        chat_id: int, link: str,
+        chat_id: int,
+        link: str,
         video: Union[bool, str] = None,
         image: Union[bool, str] = None,
     ):
@@ -418,9 +425,16 @@ class Call(PyTgCalls):
             except Exception:
                 raise AssistantErr("**ɴᴏ ᴀᴄᴛɪᴠᴇ ᴠɪᴅᴇᴏ ᴄʜᴀᴛ ғᴏᴜɴᴅ**")
         except AlreadyJoinedError:
-            raise AssistantErr("**ᴀssɪsᴛᴀɴᴛ ᴀʟʀᴇᴀᴅʏ ɪɴ ᴠɪᴅᴇᴏᴄʜᴀᴛ**")
+            pass # Ignore if already joined
         except Exception as e:
-            raise AssistantErr(f"Error: {e}")
+            if "phone.CreateGroupCall" in str(e):
+                try:
+                    await self.join_assistant(original_chat_id, chat_id)
+                    await assistant.join_group_call(chat_id, stream)
+                except:
+                    raise AssistantErr("**ɴᴏ ᴀᴄᴛɪᴠᴇ ᴠɪᴅᴇᴏᴄʜᴀᴛ ғᴏᴜɴᴅ**")
+            else:
+                raise AssistantErr(f"Error: {e}")
 
         await add_active_chat(chat_id)
         await music_on(chat_id)
@@ -453,18 +467,14 @@ class Call(PyTgCalls):
         original_chat_id = check[0]["chat_id"]
         streamtype = check[0]["streamtype"]
         audio_stream_quality = await get_audio_bitrate(chat_id)
-        video_stream_quality = await get_video_bitrate(chat_id)
         videoid = check[0]["vidid"]
         check[0]["played"] = 0
-        video = True if str(streamtype) == "video" else False
 
-        if "live_" in queued or "vid_" in queued or "index_" in queued:
-            # Simplified for speed - assuming standard YouTube/Index handling
-            stream = MediaStream(queued, audio_parameters=audio_stream_quality)
+        stream = MediaStream(queued, audio_parameters=audio_stream_quality)
+        try:
             await client.change_stream(chat_id, stream)
-        else:
-            stream = MediaStream(queued, audio_parameters=audio_stream_quality)
-            await client.change_stream(chat_id, stream)
+        except:
+            pass
 
     async def ping(self):
         pings = []
