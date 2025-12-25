@@ -19,8 +19,7 @@ psutil
 yt-dlp
 pykeyboard
 unidecode
-py-tgcalls>=2.0.0
-ntgcalls==1.1.2
+py-tgcalls==2.2.0
 python-dotenv
 pyyaml
 requests
