@@ -22,16 +22,7 @@ from pyrogram.errors import (
 )
 from pyrogram.types import InlineKeyboardMarkup
 from pytgcalls import PyTgCalls
-
-# --- ERROR FIX START ---
-try:
-    from pytgcalls.exceptions import AlreadyJoinedError, NoActiveGroupCall
-except ImportError:
-    # New version compatibility
-    from pytgcalls.exceptions import CallError as AlreadyJoinedError
-    from pytgcalls.exceptions import GroupCallNotFound as NoActiveGroupCall
-# --- ERROR FIX END ---
-
+from pytgcalls.exceptions import AlreadyJoinedError, NoActiveGroupCall
 from pytgcalls.types import (
     JoinedGroupCallParticipant,
     LeftGroupCallParticipant,
@@ -283,7 +274,7 @@ class Call(PyTgCalls):
         else:
             out = file_path
         
-        # Fixed loop issue in the original code
+        # Fixing undefined 'loop' error
         loop = asyncio.get_event_loop()
         dur = await loop.run_in_executor(None, check_duration, out)
         dur = int(dur)
@@ -480,13 +471,13 @@ class Call(PyTgCalls):
     async def change_stream(self, client, chat_id):
         check = db.get(chat_id)
         popped = None
-        loop = await get_loop(chat_id)
+        loop_val = await get_loop(chat_id)
         try:
-            if loop == 0:
+            if loop_val == 0:
                 popped = check.pop(0)
             else:
-                loop = loop - 1
-                await set_loop(chat_id, loop)
+                loop_val = loop_val - 1
+                await set_loop(chat_id, loop_val)
             if popped:
                 await auto_clean(popped)
             if not check:
