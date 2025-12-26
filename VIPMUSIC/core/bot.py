@@ -1,27 +1,23 @@
 import pyrogram
-import pyromod.listen  # noqa
 from pyrogram import Client
-from pyrogram.enums import ChatMemberStatus
-from pyrogram.types import (
-    BotCommand,
-    BotCommandScopeAllChatAdministrators,
-    BotCommandScopeAllGroupChats,
-    BotCommandScopeAllPrivateChats,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-)
+from pyrogram.enums import ChatMemberStatus, ParseMode
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 import config
 from ..logging import LOGGER
 
+
 class VIPBot(Client):
     def __init__(self):
-        LOGGER(__name__).info(f"Starting Bot...")
+        LOGGER(__name__).info(f"Starting bot...")
         super().__init__(
-            "VIPMUSIC",
+            name="ShrutiMusic",
             api_id=config.API_ID,
             api_hash=config.API_HASH,
             bot_token=config.BOT_TOKEN,
+            in_memory=True,
+            parse_mode=ParseMode.HTML,
+            max_concurrent_transmissions=7,
         )
 
     async def start(self):
@@ -29,83 +25,62 @@ class VIPBot(Client):
         get_me = await self.get_me()
         self.username = get_me.username
         self.id = get_me.id
-        self.name = get_me.first_name + " " + (get_me.last_name or "")
-        self.mention = get_me.mention
+        self.name = self.me.first_name + " " + (self.me.last_name or "")
+        self.mention = self.me.mention
 
-        # Create the button
         button = InlineKeyboardMarkup(
             [
                 [
                     InlineKeyboardButton(
-                        text="๏ ᴀᴅᴅ ᴍᴇ ɪɴ ɢʀᴏᴜᴘ ๏",
+                        text="Add Me To Your Group",
                         url=f"https://t.me/{self.username}?startgroup=true",
                     )
                 ]
             ]
         )
 
-        # Log Group Notification Logic
         if config.LOG_GROUP_ID:
             try:
-                # Pehle check karein ki kya photo URL available hai
-                if config.START_IMG_URL:
-                    try:
-                        await self.send_photo(
-                            config.LOG_GROUP_ID,
-                            photo=config.START_IMG_URL,
-                            caption=f"╔════❰𝐖𝐄𝐋𝐂𝐎𝐌𝐄❱════❍⊱❁۪۪\n║\n║┣⪼🥀𝐁𝐨𝐭 𝐒𝐭𝐚𝐫𝐭𝐞𝐝 𝐁𝐚𝐛𝐲🎉\n║\n║┣⪼ {self.name}\n║\n║┣⪼🎈𝐈𝐃:- `{self.id}` \n║\n║┣⪼🎄@{self.username} \n║ \n║┣⪼💖𝐓𝐡𝐚𝐧𝐤𝐬 𝐅𝐨𝐫 𝐔𝐬𝐢𝐧𝐠😍\n║\n╚════════════════❍⊱❁",
-                            reply_markup=button,
-                        )
-                    except Exception:
-                        # Agar photo fail ho jaye toh text bhejien
-                        await self.send_message(
-                            config.LOG_GROUP_ID,
-                            f"╔═══❰𝐖𝐄𝐋𝐂𝐎𝐌𝐄❱═══❍⊱❁۪۪\n║\n║┣⪼🥀𝐁𝐨𝐭 𝐒𝐭𝐚𝐫𝐭𝐞𝐝 𝐁𝐚𝐛𝐲🎉\n║\n║◈ {self.name}\n║\n║┣⪼🎈𝐈𝐃:- `{self.id}` \n║\n║┣⪼🎄@{self.username} \n║ \n║┣⪼💖𝐓𝐡𝐚𝐧𝐤𝐬 𝐅𝐨𝐫 𝐔𝐬𝐢𝐧𝐠😍\n║\n╚══════════════❍⊱❁",
-                            reply_markup=button,
-                        )
-                else:
-                    await self.send_message(config.LOG_GROUP_ID, "Bot Started!")
+                await self.send_photo(
+                    config.LOG_GROUP_ID,
+                    photo=config.START_IMG_URL,
+                    caption=f"<b>🎵 Bot Started Successfully</b>\n\n"
+                            f"<b>Name:</b> {self.name}\n"
+                            f"<b>Username:</b> @{self.username}\n"
+                            f"<b>ID:</b> <code>{self.id}</code>\n\n"
+                            f"<i>Bot is now online and ready to serve!</i>",
+                    reply_markup=button,
+                )
             except pyrogram.errors.ChatWriteForbidden:
-                LOGGER(__name__).error("Bot ko Log Group mein message bhejne ki permission nahi hai (Add as Admin).")
+                LOGGER(__name__).error("Bot cannot write to the log group")
+                try:
+                    await self.send_message(
+                        config.LOG_GROUP_ID,
+                        f"<b>🎵 Bot Started Successfully</b>\n\n"
+                        f"<b>Name:</b> {self.name}\n"
+                        f"<b>Username:</b> @{self.username}\n"
+                        f"<b>ID:</b> <code>{self.id}</code>\n\n"
+                        f"<i>Bot is now online and ready to serve!</i>",
+                        reply_markup=button,
+                    )
+                except Exception as e:
+                    LOGGER(__name__).error(f"Failed to send message in log group: {e}")
             except Exception as e:
-                LOGGER(__name__).error(f"Log Group Error: {e}")
+                LOGGER(__name__).error(f"Error while sending to log group: {e}")
         else:
-            LOGGER(__name__).warning("LOG_GROUP_ID set nahi hai, skip kar raha hoon.")
+            LOGGER(__name__).warning("LOG_GROUP_ID is not set")
 
-        # Setting commands
-        if config.SET_CMDS:
-            try:
-                await self.set_bot_commands(
-                    commands=[
-                        BotCommand("start", "Start the bot"),
-                        BotCommand("help", "Get the help menu"),
-                        BotCommand("ping", "Check if the bot is alive"),
-                    ],
-                    scope=BotCommandScopeAllPrivateChats(),
-                )
-                await self.set_bot_commands(
-                    commands=[
-                        BotCommand("play", "Start playing song"),
-                        BotCommand("stop", "Stop the music"),
-                        BotCommand("pause", "Pause the music"),
-                        BotCommand("resume", "Resume the music"),
-                        BotCommand("skip", "Skip current song"),
-                    ],
-                    scope=BotCommandScopeAllGroupChats(),
-                )
-            except Exception as e:
-                LOGGER(__name__).error(f"Failed to set commands: {e}")
-
-        # Final Admin Check
         if config.LOG_GROUP_ID:
             try:
-                m = await self.get_chat_member(config.LOG_GROUP_ID, self.id)
-                if m.status != ChatMemberStatus.ADMINISTRATOR:
-                    LOGGER(__name__).error("ADMIN BANAAO: Bot log group mein admin nahi hai.")
-            except Exception:
-                pass
+                chat_member_info = await self.get_chat_member(
+                    config.LOG_GROUP_ID, self.id
+                )
+                if chat_member_info.status != ChatMemberStatus.ADMINISTRATOR:
+                    LOGGER(__name__).error("Please promote Bot as Admin in Logger Group")
+            except Exception as e:
+                LOGGER(__name__).error(f"Error checking bot status: {e}")
 
-        LOGGER(__name__).info(f"MusicBot Started as {self.username}")
+        LOGGER(__name__).info(f"Music Bot Started as {self.name}")
 
     async def stop(self):
-        await super().stop()
+        await super().stop()s
